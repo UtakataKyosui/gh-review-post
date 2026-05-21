@@ -344,3 +344,102 @@ func TestSubmitCmd_JSONFile(t *testing.T) {
 		t.Errorf("expected JSON payload in output, got: %s", out.String())
 	}
 }
+
+// --- Issue #11: side フィールドのバリデーション ---
+
+func TestSubmitCmd_Validate_SideInvalid(t *testing.T) {
+	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    body: some comment\n    side: INVALID\n"
+	path := writeYAMLFile(t, content)
+	err := runSubmitDryRun(t, path)
+	assertValidationError(t, err, cliexit.ErrCodeValidation)
+}
+
+func TestSubmitCmd_Validate_SideLeft_Passes(t *testing.T) {
+	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    body: some comment\n    side: LEFT\n"
+	path := writeYAMLFile(t, content)
+	err := runSubmitDryRun(t, path)
+	if err != nil {
+		t.Fatalf("expected no error for side=LEFT, got: %v", err)
+	}
+}
+
+func TestSubmitCmd_Validate_SideRight_Passes(t *testing.T) {
+	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    body: some comment\n    side: RIGHT\n"
+	path := writeYAMLFile(t, content)
+	err := runSubmitDryRun(t, path)
+	if err != nil {
+		t.Fatalf("expected no error for side=RIGHT, got: %v", err)
+	}
+}
+
+func TestSubmitCmd_Validate_SideOmitted_DefaultsToRight(t *testing.T) {
+	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    body: some comment\n"
+	path := writeYAMLFile(t, content)
+
+	out := &bytes.Buffer{}
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{"submit", "--pr", "1", "-R", "owner/repo", "--file", path, "--dry-run"})
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out.Bytes(), []byte(`"side": "RIGHT"`)) {
+		t.Errorf("expected side=RIGHT in payload, got: %s", out.String())
+	}
+}
+
+// --- Issue #11: suggestion フィールドのレンダリング ---
+
+func TestSubmitCmd_Suggestion_RenderedInBody(t *testing.T) {
+	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    body: please fix\n    suggestion: return nil\n"
+	path := writeYAMLFile(t, content)
+
+	out := &bytes.Buffer{}
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{"submit", "--pr", "1", "-R", "owner/repo", "--file", path, "--dry-run"})
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// body should contain the suggestion block appended after the original body
+	if !bytes.Contains(out.Bytes(), []byte("```suggestion")) {
+		t.Errorf("expected suggestion block in payload body, got: %s", out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("return nil")) {
+		t.Errorf("expected suggestion content in payload, got: %s", out.String())
+	}
+}
+
+func TestSubmitCmd_Suggestion_OnlyBody(t *testing.T) {
+	// body が空で suggestion のみの場合、suggestion ブロックのみ生成される
+	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    suggestion: return nil\n"
+	path := writeYAMLFile(t, content)
+
+	out := &bytes.Buffer{}
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{"submit", "--pr", "1", "-R", "owner/repo", "--file", path, "--dry-run"})
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out.Bytes(), []byte("```suggestion")) {
+		t.Errorf("expected suggestion block in payload body, got: %s", out.String())
+	}
+}
+
+func TestSubmitCmd_Suggestion_FieldNotValidatedBySuggestionFenceCheck(t *testing.T) {
+	// suggestion フィールドの内容は checkSuggestionFences の対象外であること
+	// body には suggestion ブロックなし、suggestion フィールドに内容をセット → エラーなし
+	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    body: some text\n    suggestion: fixed code here\n"
+	path := writeYAMLFile(t, content)
+	err := runSubmitDryRun(t, path)
+	if err != nil {
+		t.Fatalf("expected no error when suggestion field is used (not body), got: %v", err)
+	}
+}
