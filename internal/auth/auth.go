@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/cli/go-gh/v2/pkg/auth"
+	ghauth "github.com/cli/go-gh/v2/pkg/auth"
 
 	"github.com/UtakataKyosui/gh-review-post/internal/cliexit"
 )
@@ -58,11 +58,12 @@ func ParseGHVersion(output string) error {
 
 // Token returns the authentication token for the given host.
 // Falls back to github.com if host is empty.
+// The second return value of ghauth.TokenForHost is the token source (not an error).
 func Token(host string) (string, error) {
 	if host == "" {
 		host = "github.com"
 	}
-	token, _ := auth.TokenForHost(host)
+	token, _ := ghauth.TokenForHost(host)
 	if token == "" {
 		return "", cliexit.NewAuth(cliexit.ErrCodeAuthNoToken,
 			fmt.Errorf("not authenticated for %s; run `gh auth login` first", host))

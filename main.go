@@ -6,20 +6,10 @@ import (
 	"strings"
 
 	"github.com/UtakataKyosui/gh-review-post/cmd"
-	"github.com/UtakataKyosui/gh-review-post/internal/auth"
 	"github.com/UtakataKyosui/gh-review-post/internal/cliexit"
 )
 
 func main() {
-	if err := auth.CheckGH(); err != nil {
-		cliexit.Render(err, false, os.Stdout, os.Stderr)
-		os.Exit(cliexit.ExitCodeOf(err))
-	}
-	if err := auth.CheckGHVersion(); err != nil {
-		cliexit.Render(err, false, os.Stdout, os.Stderr)
-		os.Exit(cliexit.ExitCodeOf(err))
-	}
-
 	root := cmd.NewRootCmd()
 	if err := root.Execute(); err != nil {
 		wrapped := cobraUsageErr(err)

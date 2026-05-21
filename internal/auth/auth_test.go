@@ -16,7 +16,8 @@ func TestCheckGH_Found(t *testing.T) {
 }
 
 func TestCheckGH_NotFound(t *testing.T) {
-	t.Setenv("PATH", "")
+	// Use a guaranteed-nonexistent directory so no stray gh binary is found.
+	t.Setenv("PATH", t.TempDir())
 	err := auth.CheckGH()
 	if err == nil {
 		t.Fatal("expected error when gh not in PATH")
@@ -66,5 +67,43 @@ func TestCheckGHVersion_InvalidFormat(t *testing.T) {
 	err := auth.ParseGHVersion("not a valid version string")
 	if err == nil {
 		t.Fatal("expected error for invalid format")
+	}
+}
+
+func TestToken_EmptyHostFallback(t *testing.T) {
+	// Token("") and Token("github.com") must behave identically.
+	// We can't control the auth state in CI, so we only verify the fallback doesn't panic.
+	_, err1 := auth.Token("")
+	_, err2 := auth.Token("github.com")
+
+	// Both should either succeed or fail with the same error code.
+	code := func(err error) cliexit.ErrCode {
+		var e *cliexit.Error
+		if errors.As(err, &e) {
+			return e.Code
+		}
+		return ""
+	}
+	if code(err1) != code(err2) {
+		t.Errorf("Token(\"\") code=%q, Token(\"github.com\") code=%q — should match", code(err1), code(err2))
+	}
+}
+
+func TestToken_Unauthenticated(t *testing.T) {
+	// Force unauthenticated by clearing all token env vars.
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+
+	_, err := auth.Token("github.com")
+	if err == nil {
+		// Authenticated via keychain/config — skip, can't test unauthenticated path.
+		t.Skip("authenticated via keychain; cannot test unauthenticated path")
+	}
+	var e *cliexit.Error
+	if !errors.As(err, &e) {
+		t.Fatalf("expected *cliexit.Error, got %T", err)
+	}
+	if e.Code != cliexit.ErrCodeAuthNoToken {
+		t.Errorf("Code = %q, want %q", e.Code, cliexit.ErrCodeAuthNoToken)
 	}
 }
