@@ -82,8 +82,12 @@ func TestSubmitCmd_InvalidYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("{{invalid yaml{{")
-	f.Close()
+	if _, err := f.WriteString("{{invalid yaml{{"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	root := cmd.NewRootCmd()
 	root.SetArgs([]string{"submit", "--pr", "42", "-R", "owner/repo", "--file", f.Name(), "--dry-run"})
@@ -101,8 +105,12 @@ func TestSubmitCmd_JSONFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString(content)
-	f.Close()
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	out := &bytes.Buffer{}
 	root := cmd.NewRootCmd()

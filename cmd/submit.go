@@ -97,7 +97,9 @@ func runSubmit(cmd *cobra.Command, _ []string) error {
 	if dryRun {
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		_ = enc.Encode(payload)
+		if err := enc.Encode(payload); err != nil {
+			return cliexit.NewAPI(cliexit.ErrCodeAPI, fmt.Errorf("failed to encode dry-run payload: %w", err))
+		}
 		return nil
 	}
 
@@ -123,15 +125,25 @@ func runSubmit(cmd *cobra.Command, _ []string) error {
 		return cliexit.NewAPI(cliexit.ErrCodeAPI, fmt.Errorf("failed to encode request: %w", err))
 	}
 
-	var result map[string]any
+	var result struct {
+		ID int64 `json:"id"`
+	}
 	if err := client.Post(apiPath, bytes.NewReader(body), &result); err != nil {
 		return cliexit.NewAPI(cliexit.ErrCodeAPI,
 			fmt.Errorf("API request failed: %w", err))
 	}
 
-	reviewID, _ := result["id"].(float64)
-	fmt.Fprintf(cmd.OutOrStdout(), "Review submitted: https://github.com/%s/%s/pull/%d#pullrequestreview-%d\n",
-		r.Owner, r.Name, prNumber, int(reviewID))
+	reviewURL := fmt.Sprintf("https://%s/%s/%s/pull/%d#pullrequestreview-%d",
+		r.Host, r.Owner, r.Name, prNumber, result.ID)
+
+	asJSON, _ := cmd.Root().PersistentFlags().GetBool("json")
+	if asJSON {
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{
+			"id":  result.ID,
+			"url": reviewURL,
+		})
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Review submitted: %s\n", reviewURL)
 	return nil
 }
 
@@ -147,6 +159,10 @@ func validateInput(input *reviewInput) error {
 		if c.Path == "" {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
 				fmt.Errorf("comment[%d]: path is required", i), nil)
+		}
+		if c.Line <= 0 {
+			return cliexit.NewValidation(cliexit.ErrCodeValidation,
+				fmt.Errorf("comment[%d]: line must be a positive integer", i), nil)
 		}
 		if c.Body == "" {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,

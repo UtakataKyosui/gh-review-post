@@ -21,6 +21,9 @@ review comments and PR authors reply to them using YAML/JSON input.`,
 			case "help", "__complete", "__completeNoDesc":
 				return nil
 			}
+			if cmd.Flags().Changed("help") {
+				return nil
+			}
 			if err := auth.CheckGH(); err != nil {
 				return err
 			}
