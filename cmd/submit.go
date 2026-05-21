@@ -224,8 +224,8 @@ func checkSuggestionFences(idx int, c reviewComment) []commentViolation {
 		trimmed := strings.TrimRight(line, " \t\r")
 		if strings.HasPrefix(trimmed, "```suggestion") {
 			rest := trimmed[len("```suggestion"):]
-			if rest == "" || strings.TrimSpace(rest) == "" {
-				openCount++
+			if strings.TrimSpace(rest) == "" {
+				openCount++ // valid plain fence; tracked for missing_close check below
 			} else {
 				violations = append(violations, commentViolation{
 					CommentIndex: idx,
@@ -249,6 +249,15 @@ func checkSuggestionFences(idx int, c reviewComment) []commentViolation {
 	return violations
 }
 
+func cvToMap(v commentViolation) map[string]any {
+	return map[string]any{
+		"comment_index": v.CommentIndex,
+		"path":          v.Path,
+		"line":          v.Line,
+		"reason":        v.Reason,
+	}
+}
+
 func buildValidationError(bodyLines []int, cvs []commentViolation) error {
 	hasBV := len(bodyLines) > 0
 	hasCV := len(cvs) > 0
@@ -264,16 +273,11 @@ func buildValidationError(bodyLines []int, cvs []commentViolation) error {
 	if !hasBV && hasCV {
 		vs := make([]map[string]any, len(cvs))
 		for i, v := range cvs {
-			vs[i] = map[string]any{
-				"comment_index": v.CommentIndex,
-				"path":          v.Path,
-				"line":          v.Line,
-				"reason":        v.Reason,
-			}
+			vs[i] = cvToMap(v)
 		}
 		return cliexit.NewValidation(
 			cliexit.ErrCodeSuggestionFormat,
-			fmt.Errorf("suggestion format error in %d comment(s)", len(cvs)),
+			fmt.Errorf("suggestion format error in %d violation(s)", len(cvs)),
 			map[string]any{"violations": vs},
 		)
 	}
@@ -283,12 +287,7 @@ func buildValidationError(bodyLines []int, cvs []commentViolation) error {
 	violations := make([]any, 0, total)
 	violations = append(violations, map[string]any{"location": "body", "lines": bodyLines})
 	for _, v := range cvs {
-		violations = append(violations, map[string]any{
-			"comment_index": v.CommentIndex,
-			"path":          v.Path,
-			"line":          v.Line,
-			"reason":        v.Reason,
-		})
+		violations = append(violations, cvToMap(v))
 	}
 	return cliexit.NewValidation(
 		cliexit.ErrCodeValidation,
