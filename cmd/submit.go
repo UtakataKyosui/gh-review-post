@@ -184,7 +184,8 @@ func validateInput(input *reviewInput) error {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
 				fmt.Errorf("comment[%d]: body or suggestion is required", i), nil)
 		}
-		if c.Side != "" && c.Side != "LEFT" && c.Side != "RIGHT" {
+		side := strings.ToUpper(c.Side)
+		if side != "" && side != "LEFT" && side != "RIGHT" {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
 				fmt.Errorf("comment[%d]: side must be LEFT or RIGHT", i), nil)
 		}
@@ -344,7 +345,7 @@ func buildPayload(input *reviewInput) reviewRequest {
 		Event: event,
 	}
 	for _, c := range input.Comments {
-		side := c.Side
+		side := strings.ToUpper(c.Side)
 		if side == "" {
 			side = "RIGHT"
 		}
