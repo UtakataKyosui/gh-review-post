@@ -118,6 +118,12 @@ func runSubmit(cmd *cobra.Command, _ []string) error {
 			fmt.Errorf("failed to create API client: %w", err))
 	}
 
+	if strings.ToUpper(input.Event) == "APPROVE" {
+		if err := checkSelfApprove(client, r.Host, r.Owner, r.Name, prNumber); err != nil {
+			return err
+		}
+	}
+
 	apiPath := fmt.Sprintf("repos/%s/%s/pulls/%d/reviews", r.Owner, r.Name, prNumber)
 
 	body, err := json.Marshal(payload)
@@ -289,6 +295,38 @@ func buildValidationError(bodyLines []int, cvs []commentViolation) error {
 		fmt.Errorf("validation failed: %d issue(s)", total),
 		map[string]any{"violations": violations},
 	)
+}
+
+// checkSelfApprove returns VALIDATION_SELF_APPROVE if the authenticated user is the PR author.
+// API errors are ignored so that a transient failure doesn't block submission.
+func checkSelfApprove(client *ghapi.RESTClient, host, owner, name string, prNumber int) error {
+	var currentUser struct {
+		Login string `json:"login"`
+	}
+	if err := client.Get("user", &currentUser); err != nil {
+		return nil
+	}
+
+	var pr struct {
+		User struct {
+			Login string `json:"login"`
+		} `json:"user"`
+	}
+	if err := client.Get(fmt.Sprintf("repos/%s/%s/pulls/%d", owner, name, prNumber), &pr); err != nil {
+		return nil
+	}
+
+	if currentUser.Login == "" || pr.User.Login == "" {
+		return nil
+	}
+	if currentUser.Login == pr.User.Login {
+		return cliexit.NewValidation(
+			cliexit.ErrCodeSelfApprove,
+			fmt.Errorf("cannot approve your own PR: #%d was opened by %s", prNumber, pr.User.Login),
+			map[string]any{"pr_number": prNumber, "author": pr.User.Login},
+		)
+	}
+	return nil
 }
 
 func buildPayload(input *reviewInput) reviewRequest {

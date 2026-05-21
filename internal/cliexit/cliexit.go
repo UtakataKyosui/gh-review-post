@@ -27,6 +27,7 @@ const (
 	ErrCodeValidation           ErrCode = "VALIDATION_FAILED"
 	ErrCodeBodyHasSuggestion    ErrCode = "VALIDATION_BODY_HAS_SUGGESTION"
 	ErrCodeSuggestionFormat     ErrCode = "VALIDATION_SUGGESTION_FORMAT"
+	ErrCodeSelfApprove          ErrCode = "VALIDATION_SELF_APPROVE"
 	ErrCodeAPI                  ErrCode = "API_REQUEST_FAILED"
 	ErrCodeGeneral              ErrCode = "INTERNAL_ERROR"
 )
