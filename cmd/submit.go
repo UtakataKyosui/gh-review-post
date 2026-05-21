@@ -54,14 +54,26 @@ func newSubmitCmd() *cobra.Command {
 	}
 	cmd.Flags().StringP("file", "f", "", "Path to review YAML/JSON file (required)")
 	_ = cmd.MarkFlagRequired("file")
+	cmd.Flags().String("format", "", "Force input format: yaml or json (default: auto-detect from file extension)")
 	return cmd
 }
 
 func runSubmit(cmd *cobra.Command, _ []string) error {
 	filePath, _ := cmd.Flags().GetString("file")
+	formatFlag, _ := cmd.Flags().GetString("format")
 	prNumber, _ := cmd.Root().PersistentFlags().GetInt("pr")
 	repoFlag, _ := cmd.Root().PersistentFlags().GetString("repo")
 	dryRun, _ := cmd.Root().PersistentFlags().GetBool("dry-run")
+
+	// Validate --format flag value.
+	formatFlag = strings.ToLower(formatFlag)
+	switch formatFlag {
+	case "", "yaml", "json":
+		// valid
+	default:
+		return cliexit.NewValidation(cliexit.ErrCodeValidation,
+			fmt.Errorf("invalid --format %q; must be yaml or json", formatFlag), nil)
+	}
 
 	// Resolve repository.
 	r, err := repo.Resolve(repoFlag)
@@ -77,8 +89,8 @@ func runSubmit(cmd *cobra.Command, _ []string) error {
 	}
 
 	var input reviewInput
-	lower := strings.ToLower(filePath)
-	if strings.HasSuffix(lower, ".json") {
+	useJSON := formatFlag == "json" || (formatFlag == "" && strings.HasSuffix(strings.ToLower(filePath), ".json"))
+	if useJSON {
 		if err := json.Unmarshal(raw, &input); err != nil {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
 				fmt.Errorf("invalid JSON: %w", err), nil)
