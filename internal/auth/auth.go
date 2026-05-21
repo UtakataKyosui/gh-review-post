@@ -47,8 +47,8 @@ func ParseGHVersion(output string) error {
 	minor, _ := strconv.Atoi(m[2])
 	patch, _ := strconv.Atoi(m[3])
 
-	// require >= 2.40.0
-	if major < 2 || (major == 2 && minor < 40) || (major == 2 && minor == 40 && patch < 0) {
+	// require >= 2.40.x (any patch)
+	if major < 2 || (major == 2 && minor < 40) {
 		current := fmt.Sprintf("%d.%d.%d", major, minor, patch)
 		return cliexit.NewAuth(cliexit.ErrCodeAuthOldGH,
 			fmt.Errorf("gh version %s is too old; %s or later is required", current, MinGHVersion))

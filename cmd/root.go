@@ -14,9 +14,13 @@ func NewRootCmd() *cobra.Command {
 review comments and PR authors reply to them using YAML/JSON input.`,
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		// PersistentPreRunE runs before every subcommand (except help/completion),
-		// after flag parsing — so --json is already resolved here.
+		// PersistentPreRunE runs before every subcommand, after flag parsing.
+		// Skip auth checks for help/completion so users can get help without gh installed.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			switch cmd.Name() {
+			case "help", "__complete", "__completeNoDesc":
+				return nil
+			}
 			if err := auth.CheckGH(); err != nil {
 				return err
 			}
