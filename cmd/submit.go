@@ -66,6 +66,7 @@ func runSubmit(cmd *cobra.Command, _ []string) error {
 	dryRun, _ := cmd.Root().PersistentFlags().GetBool("dry-run")
 
 	// Validate --format flag value.
+	formatFlag = strings.ToLower(formatFlag)
 	switch formatFlag {
 	case "", "yaml", "json":
 		// valid
