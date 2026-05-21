@@ -182,7 +182,7 @@ func validateInput(input *reviewInput) error {
 		}
 		if c.Body == "" && c.Suggestion == "" {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
-				fmt.Errorf("comment[%d]: body is required", i), nil)
+				fmt.Errorf("comment[%d]: body or suggestion is required", i), nil)
 		}
 		if c.Side != "" && c.Side != "LEFT" && c.Side != "RIGHT" {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
