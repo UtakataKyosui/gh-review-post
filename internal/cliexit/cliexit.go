@@ -19,14 +19,17 @@ const (
 type ErrCode string
 
 const (
-	ErrCodeAuthNoBinary ErrCode = "AUTH_GH_NOT_FOUND"
-	ErrCodeAuthNoToken  ErrCode = "AUTH_NOT_LOGGED_IN"
-	ErrCodeAuthOldGH    ErrCode = "AUTH_GH_VERSION_TOO_OLD"
-	ErrCodeUsageBadArgs ErrCode = "USAGE_INVALID_ARGS"
-	ErrCodeUsageNoRepo  ErrCode = "USAGE_REPO_NOT_DETECTED"
-	ErrCodeValidation   ErrCode = "VALIDATION_FAILED"
-	ErrCodeAPI          ErrCode = "API_REQUEST_FAILED"
-	ErrCodeGeneral      ErrCode = "INTERNAL_ERROR"
+	ErrCodeAuthNoBinary         ErrCode = "AUTH_GH_NOT_FOUND"
+	ErrCodeAuthNoToken          ErrCode = "AUTH_NOT_LOGGED_IN"
+	ErrCodeAuthOldGH            ErrCode = "AUTH_GH_VERSION_TOO_OLD"
+	ErrCodeUsageBadArgs         ErrCode = "USAGE_INVALID_ARGS"
+	ErrCodeUsageNoRepo          ErrCode = "USAGE_REPO_NOT_DETECTED"
+	ErrCodeValidation           ErrCode = "VALIDATION_FAILED"
+	ErrCodeBodyHasSuggestion    ErrCode = "VALIDATION_BODY_HAS_SUGGESTION"
+	ErrCodeSuggestionFormat     ErrCode = "VALIDATION_SUGGESTION_FORMAT"
+	ErrCodeSelfApprove          ErrCode = "VALIDATION_SELF_APPROVE"
+	ErrCodeAPI                  ErrCode = "API_REQUEST_FAILED"
+	ErrCodeGeneral              ErrCode = "INTERNAL_ERROR"
 )
 
 type Error struct {
