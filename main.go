@@ -9,8 +9,14 @@ import (
 	"github.com/UtakataKyosui/gh-review-post/internal/cliexit"
 )
 
+// version is set at build time via ldflags: -X main.version=<tag>
+var version string
+
 func main() {
 	root := cmd.NewRootCmd()
+	if version != "" {
+		root.Version = version
+	}
 	if err := root.Execute(); err != nil {
 		wrapped := cobraUsageErr(err)
 		asJSON, _ := root.PersistentFlags().GetBool("json")
