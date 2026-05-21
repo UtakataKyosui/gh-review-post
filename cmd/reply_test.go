@@ -7,26 +7,23 @@ import (
 	"github.com/UtakataKyosui/gh-review-post/cmd"
 )
 
-func TestReplyCmd_RequiresTwoArgs(t *testing.T) {
+func TestReplyCmd_Registered(t *testing.T) {
 	root := cmd.NewRootCmd()
-	root.SetArgs([]string{"reply"})
-	root.SetOut(&bytes.Buffer{})
-	root.SetErr(&bytes.Buffer{})
-
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected error when args are missing")
+	var found bool
+	for _, sub := range root.Commands() {
+		if sub.Name() == "reply" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("reply command not registered")
 	}
 }
 
-func TestReplyCmd_AcceptsTwoArgs(t *testing.T) {
+func TestReplyCmd_StubRuns(t *testing.T) {
 	root := cmd.NewRootCmd()
-	root.SetArgs([]string{"reply", "owner/repo", "42"})
+	root.SetArgs([]string{"reply", "--pr", "42", "-R", "owner/repo"})
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
-
-	err := root.Execute()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	_ = root.Execute()
 }

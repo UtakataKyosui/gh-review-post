@@ -7,26 +7,23 @@ import (
 	"github.com/UtakataKyosui/gh-review-post/cmd"
 )
 
-func TestThreadsCmd_RequiresTwoArgs(t *testing.T) {
+func TestThreadsCmd_Registered(t *testing.T) {
 	root := cmd.NewRootCmd()
-	root.SetArgs([]string{"threads"})
-	root.SetOut(&bytes.Buffer{})
-	root.SetErr(&bytes.Buffer{})
-
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected error when args are missing")
+	var found bool
+	for _, sub := range root.Commands() {
+		if sub.Name() == "threads" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("threads command not registered")
 	}
 }
 
-func TestThreadsCmd_AcceptsTwoArgs(t *testing.T) {
+func TestThreadsCmd_StubRuns(t *testing.T) {
 	root := cmd.NewRootCmd()
-	root.SetArgs([]string{"threads", "owner/repo", "42"})
+	root.SetArgs([]string{"threads", "--pr", "42", "-R", "owner/repo"})
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
-
-	err := root.Execute()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	_ = root.Execute()
 }

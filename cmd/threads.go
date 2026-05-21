@@ -1,19 +1,21 @@
 package cmd
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/spf13/cobra"
+
+	"github.com/UtakataKyosui/gh-review-post/internal/cliexit"
 )
 
 func newThreadsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "threads <owner/repo> <pr-number>",
+		Use:   "threads",
 		Short: "List open review threads on a PR",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Fprintln(cmd.OutOrStdout(), "threads: not yet implemented")
-			return nil
+			return cliexit.NewUsage(cliexit.ErrCodeUsageBadArgs,
+				errors.New("threads: not yet implemented"))
 		},
 	}
 }
