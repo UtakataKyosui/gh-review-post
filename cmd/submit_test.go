@@ -414,7 +414,7 @@ func TestSubmitCmd_Suggestion_RenderedInBody(t *testing.T) {
 	}
 }
 
-func TestSubmitCmd_Suggestion_OnlyBody(t *testing.T) {
+func TestSubmitCmd_Suggestion_SuggestionOnly(t *testing.T) {
 	// body が空で suggestion のみの場合、suggestion ブロックのみ生成される
 	content := "event: COMMENT\nbody: ok\ncomments:\n  - path: a.go\n    line: 1\n    suggestion: return nil\n"
 	path := writeYAMLFile(t, content)
