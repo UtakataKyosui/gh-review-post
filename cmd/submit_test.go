@@ -443,3 +443,131 @@ func TestSubmitCmd_Suggestion_FieldNotValidatedBySuggestionFenceCheck(t *testing
 		t.Fatalf("expected no error when suggestion field is used (not body), got: %v", err)
 	}
 }
+
+// --- Issue #12: --format flag ---
+
+// TestSubmitCmd_FormatYAML_WithJSONExtension verifies that --format yaml parses
+// a file with .json extension as YAML.
+func TestSubmitCmd_FormatYAML_WithJSONExtension(t *testing.T) {
+	// Write YAML content to a file with .json extension.
+	yamlContent := "event: COMMENT\nbody: yaml body\ncomments:\n  - path: a.go\n    line: 1\n    body: hi\n"
+	f, err := os.CreateTemp(t.TempDir(), "review-*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(yamlContent); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	out := &bytes.Buffer{}
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{
+		"submit", "--pr", "1", "-R", "owner/repo",
+		"--file", f.Name(), "--format", "yaml", "--dry-run",
+	})
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out.Bytes(), []byte(`"event": "COMMENT"`)) {
+		t.Errorf("expected dry-run JSON payload in output, got: %s", out.String())
+	}
+}
+
+// TestSubmitCmd_FormatJSON_WithYAMLExtension verifies that --format json parses
+// a file with .yaml extension as JSON.
+func TestSubmitCmd_FormatJSON_WithYAMLExtension(t *testing.T) {
+	// Write JSON content to a file with .yaml extension.
+	jsonContent := `{"event":"COMMENT","body":"json body","comments":[{"path":"b.go","line":2,"body":"ok"}]}`
+	f, err := os.CreateTemp(t.TempDir(), "review-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(jsonContent); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	out := &bytes.Buffer{}
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{
+		"submit", "--pr", "1", "-R", "owner/repo",
+		"--file", f.Name(), "--format", "json", "--dry-run",
+	})
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out.Bytes(), []byte(`"event": "COMMENT"`)) {
+		t.Errorf("expected dry-run JSON payload in output, got: %s", out.String())
+	}
+}
+
+// TestSubmitCmd_FormatInvalid verifies that an invalid --format value returns
+// VALIDATION_FAILED (exit 4).
+func TestSubmitCmd_FormatInvalid(t *testing.T) {
+	// Write a minimal valid YAML file; the format flag error should fire before parsing.
+	f, err := os.CreateTemp(t.TempDir(), "review-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("event: COMMENT\nbody: ok\ncomments: []\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{
+		"submit", "--pr", "1", "-R", "owner/repo",
+		"--file", f.Name(), "--format", "foo", "--dry-run",
+	})
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+
+	err = root.Execute()
+	assertValidationError(t, err, cliexit.ErrCodeValidation)
+}
+
+// TestSubmitCmd_FormatOmitted_ExtensionFallback verifies that omitting --format
+// still uses the file extension to determine the parser.
+func TestSubmitCmd_FormatOmitted_ExtensionFallback(t *testing.T) {
+	// JSON content in .json file — no --format flag.
+	content := `{"event":"COMMENT","body":"auto","comments":[{"path":"c.go","line":3,"body":"auto"}]}`
+	f, err := os.CreateTemp(t.TempDir(), "review-*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	out := &bytes.Buffer{}
+	root := cmd.NewRootCmd()
+	root.SetArgs([]string{
+		"submit", "--pr", "1", "-R", "owner/repo",
+		"--file", f.Name(), "--dry-run",
+	})
+	root.SetOut(out)
+	root.SetErr(&bytes.Buffer{})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Contains(out.Bytes(), []byte(`"event": "COMMENT"`)) {
+		t.Errorf("expected dry-run JSON payload in output, got: %s", out.String())
+	}
+}
