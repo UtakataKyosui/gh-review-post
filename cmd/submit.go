@@ -24,9 +24,11 @@ type reviewInput struct {
 }
 
 type reviewComment struct {
-	Path string `yaml:"path" json:"path"`
-	Line int    `yaml:"line" json:"line"`
-	Body string `yaml:"body" json:"body"`
+	Path       string `yaml:"path" json:"path"`
+	Line       int    `yaml:"line" json:"line"`
+	Body       string `yaml:"body" json:"body"`
+	Side       string `yaml:"side" json:"side"`
+	Suggestion string `yaml:"suggestion" json:"suggestion"`
 }
 
 // reviewRequest is the GitHub REST API payload.
@@ -178,9 +180,14 @@ func validateInput(input *reviewInput) error {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
 				fmt.Errorf("comment[%d]: line must be a positive integer", i), nil)
 		}
-		if c.Body == "" {
+		if c.Body == "" && c.Suggestion == "" {
 			return cliexit.NewValidation(cliexit.ErrCodeValidation,
-				fmt.Errorf("comment[%d]: body is required", i), nil)
+				fmt.Errorf("comment[%d]: body or suggestion is required", i), nil)
+		}
+		side := strings.ToUpper(c.Side)
+		if side != "" && side != "LEFT" && side != "RIGHT" {
+			return cliexit.NewValidation(cliexit.ErrCodeValidation,
+				fmt.Errorf("comment[%d]: side must be LEFT or RIGHT", i), nil)
 		}
 	}
 
@@ -338,11 +345,23 @@ func buildPayload(input *reviewInput) reviewRequest {
 		Event: event,
 	}
 	for _, c := range input.Comments {
+		side := strings.ToUpper(c.Side)
+		if side == "" {
+			side = "RIGHT"
+		}
+		body := c.Body
+		if c.Suggestion != "" {
+			if body != "" {
+				body += "\n```suggestion\n" + c.Suggestion + "\n```"
+			} else {
+				body = "```suggestion\n" + c.Suggestion + "\n```"
+			}
+		}
 		req.Comments = append(req.Comments, reviewCommentReq{
 			Path: c.Path,
 			Line: c.Line,
-			Side: "RIGHT",
-			Body: c.Body,
+			Side: side,
+			Body: body,
 		})
 	}
 	return req
