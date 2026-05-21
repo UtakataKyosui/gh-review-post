@@ -147,6 +147,14 @@ func runSubmit(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
+// commentViolation represents a single suggestion-format violation in an inline comment.
+type commentViolation struct {
+	CommentIndex int    `json:"comment_index"`
+	Path         string `json:"path"`
+	Line         int    `json:"line"`
+	Reason       string `json:"reason"`
+}
+
 func validateInput(input *reviewInput) error {
 	event := strings.ToUpper(input.Event)
 	switch event {
@@ -169,7 +177,118 @@ func validateInput(input *reviewInput) error {
 				fmt.Errorf("comment[%d]: body is required", i), nil)
 		}
 	}
-	return nil
+
+	bodyLines := checkBodySuggestion(input.Body)
+	commentViolations := checkCommentSuggestions(input.Comments)
+
+	if len(bodyLines) == 0 && len(commentViolations) == 0 {
+		return nil
+	}
+
+	return buildValidationError(bodyLines, commentViolations)
+}
+
+// checkBodySuggestion returns 1-origin line numbers where suggestion blocks appear in the body.
+// Any line starting with "```suggestion" (tag or not) is a violation in review body.
+func checkBodySuggestion(body string) []int {
+	var lines []int
+	for i, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, "```suggestion") {
+			lines = append(lines, i+1)
+		}
+	}
+	return lines
+}
+
+// checkCommentSuggestions validates suggestion block format across all comments.
+func checkCommentSuggestions(comments []reviewComment) []commentViolation {
+	var violations []commentViolation
+	for i, c := range comments {
+		violations = append(violations, checkSuggestionFences(i, c)...)
+	}
+	return violations
+}
+
+// checkSuggestionFences checks that suggestion fences in a single comment body are valid:
+// no language tag, and each open fence has a matching close fence.
+func checkSuggestionFences(idx int, c reviewComment) []commentViolation {
+	var violations []commentViolation
+	openCount := 0
+	for _, line := range strings.Split(c.Body, "\n") {
+		trimmed := strings.TrimRight(line, " \t\r")
+		if strings.HasPrefix(trimmed, "```suggestion") {
+			rest := trimmed[len("```suggestion"):]
+			if rest == "" || strings.TrimSpace(rest) == "" {
+				openCount++
+			} else {
+				violations = append(violations, commentViolation{
+					CommentIndex: idx,
+					Path:         c.Path,
+					Line:         c.Line,
+					Reason:       "language_tag",
+				})
+			}
+		} else if trimmed == "```" && openCount > 0 {
+			openCount--
+		}
+	}
+	if openCount > 0 {
+		violations = append(violations, commentViolation{
+			CommentIndex: idx,
+			Path:         c.Path,
+			Line:         c.Line,
+			Reason:       "missing_close",
+		})
+	}
+	return violations
+}
+
+func buildValidationError(bodyLines []int, cvs []commentViolation) error {
+	hasBV := len(bodyLines) > 0
+	hasCV := len(cvs) > 0
+
+	if hasBV && !hasCV {
+		return cliexit.NewValidation(
+			cliexit.ErrCodeBodyHasSuggestion,
+			fmt.Errorf("review body contains %d suggestion block(s)", len(bodyLines)),
+			map[string]any{"location": "body", "lines": bodyLines},
+		)
+	}
+
+	if !hasBV && hasCV {
+		vs := make([]map[string]any, len(cvs))
+		for i, v := range cvs {
+			vs[i] = map[string]any{
+				"comment_index": v.CommentIndex,
+				"path":          v.Path,
+				"line":          v.Line,
+				"reason":        v.Reason,
+			}
+		}
+		return cliexit.NewValidation(
+			cliexit.ErrCodeSuggestionFormat,
+			fmt.Errorf("suggestion format error in %d comment(s)", len(cvs)),
+			map[string]any{"violations": vs},
+		)
+	}
+
+	// Both body and comment violations: aggregate under VALIDATION_FAILED.
+	total := 1 + len(cvs) // body counts as one aggregate entry
+	violations := make([]any, 0, total)
+	violations = append(violations, map[string]any{"location": "body", "lines": bodyLines})
+	for _, v := range cvs {
+		violations = append(violations, map[string]any{
+			"comment_index": v.CommentIndex,
+			"path":          v.Path,
+			"line":          v.Line,
+			"reason":        v.Reason,
+		})
+	}
+	return cliexit.NewValidation(
+		cliexit.ErrCodeValidation,
+		fmt.Errorf("validation failed: %d issue(s)", total),
+		map[string]any{"violations": violations},
+	)
 }
 
 func buildPayload(input *reviewInput) reviewRequest {
